@@ -33,8 +33,12 @@ jobs:
 
       - name: Send electricity prices
         run: |
-          if [[ "$(TZ=Europe/Stockholm date +%H)" == "18" ]]; then
+          if [[ "${GITHUB_EVENT_NAME}" != "schedule" ]]; then
+            python notify_prices.py today
+          elif [[ "$(TZ=Europe/Stockholm date +%H)" == "05" ]]; then
+            python notify_prices.py today
+          elif [[ "$(TZ=Europe/Stockholm date +%H)" == "18" ]]; then
             python notify_prices.py tomorrow
           else
-            python notify_prices.py today
+            echo "Skipping duplicate UTC schedule trigger"
           fi

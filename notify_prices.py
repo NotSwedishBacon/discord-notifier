@@ -237,10 +237,6 @@ def send_to_discord(
         ) from error
 
 
-def should_run_now() -> bool:
-    return os.environ.get("GITHUB_EVENT_NAME") != "schedule" or datetime.now(STOCKHOLM).hour in (5, 18)
-
-
 def get_target_date(day: str) -> datetime:
     current_date = datetime.now(STOCKHOLM)
     if day == "today":
@@ -255,10 +251,6 @@ def main() -> int:
         if len(sys.argv) != 2:
             raise RuntimeError("Usage: python notify_prices.py today|tomorrow")
         target_day = sys.argv[1].lower()
-
-        if not should_run_now():
-            print("Skipping scheduled trigger outside 05:00 or 18:00 Europe/Stockholm")
-            return 0
 
         webhook_url = get_required_environment("DISCORD_WEBHOOK_URL")
         price_class = get_required_environment("PRISKLASS").upper()
