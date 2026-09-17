@@ -33,8 +33,11 @@ def get_required_environment(name: str) -> str:
 def fetch_prices(price_class: str, date: datetime) -> list[dict]:
     url = f"{API_BASE_URL}/{date:%Y/%m-%d}_{price_class}.json"
     request = Request(url, headers={"User-Agent": "discord-notifier/1.0"})
-    with urlopen(request, timeout=30) as response:
-        prices = json.load(response)
+    try:
+        with urlopen(request, timeout=30) as response:
+            prices = json.load(response)
+    except HTTPError as error:
+        raise RuntimeError(f"Electricity price API returned HTTP {error.code}") from error
 
     if not isinstance(prices, list) or not prices:
         raise RuntimeError("The electricity price API returned no prices")
@@ -130,9 +133,14 @@ def send_to_discord(
         headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
         method="POST",
     )
-    with urlopen(request, timeout=30) as response:
-        if response.status not in (200, 204):
-            raise RuntimeError(f"Discord returned HTTP {response.status}")
+    try:
+        with urlopen(request, timeout=30) as response:
+            if response.status not in (200, 204):
+                raise RuntimeError(f"Discord returned HTTP {response.status}")
+    except HTTPError as error:
+        raise RuntimeError(
+            f"Discord webhook returned HTTP {error.code}; check the webhook secret"
+        ) from error
 
 
 def should_run_now() -> bool:
