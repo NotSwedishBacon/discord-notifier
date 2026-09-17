@@ -152,11 +152,11 @@ def create_chart(
     hours = list(range(1, len(hourly_points) + 1))
     bars = axis.bar(hours, values, color=colors, width=0.78, edgecolor="#151619", linewidth=0.5)
     axis.set_title(
-        f"⚡ DAGLIGA ELPRISER ({price_class})\n{date:%Y-%m-%d}",
+        f"DAGLIGA ELPRISER {date:%Y-%m-%d}",
         color="white",
         fontsize=16,
         fontweight="bold",
-        loc="left",
+        loc="center",
         pad=18,
     )
     axis.set_ylabel("SPOTPRIS (SEK/KWH)", color="#d7d9dc", fontsize=10, fontweight="bold")
@@ -169,15 +169,6 @@ def create_chart(
     for spine in axis.spines.values():
         spine.set_visible(False)
     axis.set_ylim(0, max(maximum * 1.18, 1))
-    axis.text(
-        0.01,
-        0.98,
-        f"Min {minimum:.2f}  •  Max {maximum:.2f}  •  Snitt {mean(values):.2f} SEK/kWh",
-        transform=axis.transAxes,
-        color="#b9bbbe",
-        fontsize=9,
-        va="top",
-    )
     for bar, value in zip(bars, values):
         axis.text(
             bar.get_x() + bar.get_width() / 2,
