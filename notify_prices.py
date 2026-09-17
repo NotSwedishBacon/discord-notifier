@@ -14,7 +14,6 @@ from zoneinfo import ZoneInfo
 
 import matplotlib
 import matplotlib.cm as cm
-import matplotlib.dates as mdates
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -83,8 +82,13 @@ def create_chart(
     price_class: str,
     date: datetime,
 ) -> bytes:
-    times = [time for time, _ in price_points]
-    values = [price for _, price in price_points]
+    hourly: dict[datetime, list[float]] = {}
+    for time, price in price_points:
+        hour = time.replace(minute=0, second=0, microsecond=0)
+        hourly.setdefault(hour, []).append(price)
+
+    hourly_points = sorted((hour, mean(prices)) for hour, prices in hourly.items())
+    values = [price * 100 for _, price in hourly_points]
     minimum = min(values)
     maximum = max(values)
     spread = maximum - minimum
@@ -96,21 +100,51 @@ def create_chart(
     )
     colors = [colormap((price - minimum) / spread if spread else 0.5) for price in values]
 
-    figure, axis = plt.subplots(figsize=(12, 5), dpi=150)
-    plot_times = [mdates.date2num(time) for time in times]
-    axis.step(plot_times, values, where="post", color="#b7b7b7", linewidth=2.5, zorder=1)
-    axis.scatter(plot_times, values, color=colors, edgecolors="#333333", linewidths=0.25, s=16, zorder=2)
-    axis.set_title(f"Elpriser {date:%Y-%m-%d} ({price_class})")
-    axis.set_ylabel("SEK/kWh")
-    axis.grid(axis="y", alpha=0.25)
+    figure, axis = plt.subplots(figsize=(12, 6.5), dpi=150, facecolor="#202225")
+    axis.set_facecolor("#202225")
+    hours = list(range(1, len(hourly_points) + 1))
+    bars = axis.bar(hours, values, color=colors, width=0.78, edgecolor="#151619", linewidth=0.5)
+    axis.set_title(
+        f"⚡ DAGLIGA ELPRISER ({price_class})\n{date:%Y-%m-%d}",
+        color="white",
+        fontsize=16,
+        fontweight="bold",
+        loc="left",
+        pad=18,
+    )
+    axis.set_ylabel("SPOTPRIS (ÖRE/KWH)", color="#d7d9dc", fontsize=10, fontweight="bold")
+    axis.set_xlabel("TIMME", color="#d7d9dc", fontsize=10, fontweight="bold", labelpad=10)
+    axis.set_xticks(hours)
+    axis.set_xticklabels([str(hour) for hour in hours], color="#d7d9dc")
+    axis.tick_params(axis="y", colors="#d7d9dc")
+    axis.grid(axis="y", color="#4b4d52", alpha=0.45, linewidth=0.7)
     axis.set_axisbelow(True)
-    axis.xaxis.set_major_locator(mdates.MinuteLocator(interval=30))
-    axis.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
-    axis.tick_params(axis="x", rotation=45)
-    figure.tight_layout()
+    for spine in axis.spines.values():
+        spine.set_visible(False)
+    axis.set_ylim(0, max(maximum * 1.18, 1))
+    axis.text(
+        0.01,
+        0.98,
+        f"Min {minimum:.0f}  •  Max {maximum:.0f}  •  Snitt {mean(values):.0f} öre/kWh",
+        transform=axis.transAxes,
+        color="#b9bbbe",
+        fontsize=9,
+        va="top",
+    )
+    for bar, value in zip(bars, values):
+        axis.text(
+            bar.get_x() + bar.get_width() / 2,
+            value + maximum * 0.025,
+            f"{value:.0f}",
+            ha="center",
+            va="bottom",
+            color="#d7d9dc",
+            fontsize=7,
+        )
+    figure.tight_layout(pad=1.5)
 
     image = BytesIO()
-    figure.savefig(image, format="png", facecolor="white")
+    figure.savefig(image, format="png", facecolor="#202225")
     plt.close(figure)
     return image.getvalue()
 
