@@ -13,7 +13,6 @@ from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 import matplotlib
-import matplotlib.cm as cm
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -125,28 +124,23 @@ def create_chart(
     price_class: str,
     date: datetime,
 ) -> bytes:
-    hourly: dict[datetime, list[float]] = {}
-    for time, price in price_points:
-        hour = time.replace(minute=0, second=0, microsecond=0)
-        hourly.setdefault(hour, []).append(price)
-
-    hourly_points = sorted((hour, mean(prices)) for hour, prices in hourly.items())
-    values = [price for _, price in hourly_points]
-    minimum = min(values)
+    interval_points = sorted(price_points)
+    values = [price for _, price in interval_points]
     maximum = max(values)
-    spread = maximum - minimum
-    colormap_registry = getattr(matplotlib, "colormaps", None)
-    colormap = (
-        colormap_registry["RdYlGn_r"]
-        if colormap_registry is not None
-        else cm.get_cmap("RdYlGn_r")
-    )
-    colors = [colormap((price - minimum) / spread if spread else 0.5) for price in values]
+    average = mean(values)
+    colors = ["#43a047" if price < average else "#e53935" for price in values]
 
     figure, axis = plt.subplots(figsize=(12, 6.5), dpi=150, facecolor="#202225")
     axis.set_facecolor("#202225")
-    hours = list(range(1, len(hourly_points) + 1))
-    bars = axis.bar(hours, values, color=colors, width=0.78, edgecolor="#151619", linewidth=0.5)
+    intervals = list(range(1, len(interval_points) + 1))
+    bars = axis.bar(
+        intervals,
+        values,
+        color=colors,
+        width=0.9,
+        edgecolor="#151619",
+        linewidth=0.5,
+    )
     axis.set_title(
         f"DAGLIGA ELPRISER {date:%Y-%m-%d}",
         color="white",
@@ -156,9 +150,16 @@ def create_chart(
         pad=18,
     )
     axis.set_ylabel("SPOTPRIS (SEK/KWH)", color="#d7d9dc", fontsize=10, fontweight="bold")
-    axis.set_xlabel("TIMME", color="#d7d9dc", fontsize=10, fontweight="bold", labelpad=10)
-    axis.set_xticks(hours)
-    axis.set_xticklabels([str(hour) for hour in hours], color="#d7d9dc")
+    axis.set_xlabel("TID", color="#d7d9dc", fontsize=10, fontweight="bold", labelpad=10)
+    hourly_intervals = [
+        index for index, (time, _) in enumerate(interval_points, start=1)
+        if time.minute == 0
+    ]
+    axis.set_xticks(hourly_intervals)
+    axis.set_xticklabels(
+        [interval_points[index - 1][0].strftime("%H:%M") for index in hourly_intervals],
+        color="#d7d9dc",
+    )
     axis.tick_params(axis="y", colors="#d7d9dc")
     axis.grid(axis="y", color="#4b4d52", alpha=0.45, linewidth=0.7)
     axis.set_axisbelow(True)
