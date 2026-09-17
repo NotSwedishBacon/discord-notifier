@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 import matplotlib
+from matplotlib.cm import get_cmap
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -78,8 +79,9 @@ def create_chart(hourly_prices: list[tuple[str, float]]) -> bytes:
     minimum = min(values)
     maximum = max(values)
     spread = maximum - minimum
+    colormap = get_cmap("RdYlGn_r")
     colors = [
-        plt.get_cmap("RdYlGn_r")((price - minimum) / spread if spread else 0.5)
+        colormap((price - minimum) / spread if spread else 0.5)
         for price in values
     ]
 
@@ -138,8 +140,10 @@ def send_to_discord(
             if response.status not in (200, 204):
                 raise RuntimeError(f"Discord returned HTTP {response.status}")
     except HTTPError as error:
+        response_body = error.read().decode("utf-8", errors="replace").strip()
+        details = f": {response_body}" if response_body else ""
         raise RuntimeError(
-            f"Discord webhook returned HTTP {error.code}; check the webhook secret"
+            f"Discord webhook returned HTTP {error.code}{details}"
         ) from error
 
 
