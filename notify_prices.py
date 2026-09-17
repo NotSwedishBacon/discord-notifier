@@ -59,16 +59,10 @@ def format_prices(
 
     price_points.sort()
     all_prices = [price for _, price in price_points]
-    hourly: dict[datetime, list[float]] = {}
-    for time, price in price_points:
-        hour = time.replace(minute=0, second=0, microsecond=0)
-        hourly.setdefault(hour, []).append(price)
-    hourly_points = sorted((hour, mean(hour_prices)) for hour, hour_prices in hourly.items())
     average = mean(all_prices)
-    cheapest_window = find_price_window(hourly_points, average, cheapest=True)
-    most_expensive_window = find_price_window(hourly_points, average, cheapest=False)
+    cheapest_window = find_price_window(price_points, cheapest=True)
+    most_expensive_window = find_price_window(price_points, cheapest=False)
     summary = (
-        f"**DAGENS ELPRISER**\n"
         f"**Prisöversikt**\n"
         f"Min: {min(all_prices):.2f} SEK/kWh\n"
         f"Max: {max(all_prices):.2f} SEK/kWh\n"
@@ -91,36 +85,19 @@ def format_prices(
 
 
 def find_price_window(
-    hourly_points: list[tuple[datetime, float]],
-    average: float,
+    price_points: list[tuple[datetime, float]],
     *,
     cheapest: bool,
 ) -> tuple[datetime, datetime, float]:
-    windows: list[list[tuple[datetime, float]]] = []
-    current: list[tuple[datetime, float]] = []
-    for point in hourly_points:
-        is_match = point[1] <= average if cheapest else point[1] >= average
-        if is_match:
-            current.append(point)
-        elif current:
-            windows.append(current)
-            current = []
-    if current:
-        windows.append(current)
-
-    selected = min(
-        windows,
-        key=lambda window: mean(price for _, price in window),
-        default=[hourly_points[0]],
-    ) if cheapest else max(
-        windows,
-        key=lambda window: mean(price for _, price in window),
-        default=[hourly_points[0]],
+    selected_time, selected_price = (
+        min(price_points, key=lambda point: point[1])
+        if cheapest
+        else max(price_points, key=lambda point: point[1])
     )
     return (
-        selected[0][0],
-        selected[-1][0].replace(minute=0, second=0, microsecond=0) + timedelta(hours=1),
-        mean(price for _, price in selected),
+        selected_time,
+        selected_time + timedelta(minutes=15),
+        selected_price,
     )
 
 
