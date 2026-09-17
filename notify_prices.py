@@ -20,7 +20,6 @@ import matplotlib.pyplot as plt
 
 
 API_BASE_URL = "https://www.elprisetjustnu.se/api/v1/prices"
-STOCKHOLM = ZoneInfo("Europe/Stockholm")
 PRICE_CLASS_PATTERN = re.compile(r"^SE[1-4]$")
 
 
@@ -236,28 +235,14 @@ def send_to_discord(
             f"Discord webhook returned HTTP {error.code}{details}"
         ) from error
 
-
-def get_target_date(day: str) -> datetime:
-    current_date = datetime.now(STOCKHOLM)
-    if day == "today":
-        return current_date
-    if day == "tomorrow":
-        return current_date + timedelta(days=1)
-    raise RuntimeError("Date argument must be today or tomorrow")
-
-
 def main() -> int:
     try:
-        if len(sys.argv) != 2:
-            raise RuntimeError("Usage: python notify_prices.py today|tomorrow")
-        target_day = sys.argv[1].lower()
-
         webhook_url = get_required_environment("DISCORD_WEBHOOK_URL")
         price_class = get_required_environment("PRISKLASS").upper()
         if not PRICE_CLASS_PATTERN.fullmatch(price_class):
             raise RuntimeError("PRISKLASS must be one of SE1, SE2, SE3, or SE4")
 
-        target_date = get_target_date(target_day)
+        target_date = datetime.now() + timedelta(days=1)
         prices = fetch_prices(price_class, target_date)
         summary, _, _, _, price_points = format_prices(prices)
         send_to_discord(
