@@ -121,7 +121,6 @@ def find_ranked_window(
 
 def create_chart(
     price_points: list[tuple[datetime, float]],
-    price_class: str,
     date: datetime,
 ) -> bytes:
     interval_points = sorted(price_points)
@@ -167,6 +166,7 @@ def create_chart(
         [interval_points[index - 1][0].strftime("%H") for index in hourly_intervals],
         color="#d7d9dc",
     )
+    axis.tick_params(axis="both", length=0)
     axis.tick_params(axis="y", colors="#d7d9dc")
     axis.grid(axis="y", color="#4b4d52", alpha=0.45, linewidth=0.7)
     axis.set_axisbelow(True)
@@ -245,7 +245,7 @@ def main() -> int:
             price_class,
             target_date,
             summary,
-            create_chart(price_points, price_class, target_date),
+            create_chart(price_points, target_date),
         )
         print(f"Posted {len(prices)} price points for {target_date:%Y-%m-%d} ({price_class})")
         return 0
