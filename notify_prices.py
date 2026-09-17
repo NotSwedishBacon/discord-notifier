@@ -160,6 +160,7 @@ def create_chart(
         [interval_points[index - 1][0].strftime("%H") for index in hourly_intervals],
         color="#d7d9dc",
     )
+    axis.tick_params(axis="x", colors="#d7d9dc", direction="in", length=6, width=1)
     axis.tick_params(axis="y", colors="#d7d9dc")
     axis.grid(axis="y", color="#4b4d52", alpha=0.45, linewidth=0.7)
     axis.set_axisbelow(True)
