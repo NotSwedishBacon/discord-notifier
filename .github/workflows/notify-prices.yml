@@ -4,8 +4,10 @@ on:
   schedule:
     # GitHub cron uses UTC. These two triggers cover CET and CEST; the script
     # skips the trigger that is not 05:00 in Stockholm.
-    - cron: "0 3 * * *"
     - cron: "0 4 * * *"
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions: {}

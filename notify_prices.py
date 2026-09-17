@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 import matplotlib
 import matplotlib.cm as cm
+import matplotlib.dates as mdates
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -45,52 +46,66 @@ def fetch_prices(price_class: str, date: datetime) -> list[dict]:
     return prices
 
 
-def format_hourly_prices(
+def format_prices(
     prices: list[dict],
-) -> tuple[str, float, float, float, list[tuple[str, float]]]:
-    hourly: dict[str, list[float]] = {}
+) -> tuple[str, float, float, float, list[tuple[datetime, float]]]:
+    price_points: list[tuple[datetime, float]] = []
     for item in prices:
         try:
             start = datetime.fromisoformat(item["time_start"])
             price = float(item["SEK_per_kWh"])
         except (KeyError, TypeError, ValueError) as error:
             raise RuntimeError("The electricity price API returned invalid data") from error
-        hour = start.replace(minute=0, second=0, microsecond=0)
-        hourly.setdefault(hour.strftime("%H:%M"), []).append(price)
+        price_points.append((start, price))
 
-    hourly_prices = [(hour, mean(values)) for hour, values in hourly.items()]
-    rows = []
-    all_prices = [price for values in hourly.values() for price in values]
-    for hour, price in hourly_prices:
-        rows.append(f"{hour}  {price:.2f} kr/kWh")
+    price_points.sort()
+    all_prices = [price for _, price in price_points]
+    cheapest_time, cheapest_price = min(price_points, key=lambda point: point[1])
+    most_expensive_time, most_expensive_price = max(price_points, key=lambda point: point[1])
+    summary = (
+        f"Min: {min(all_prices):.2f} kr/kWh | Max: {max(all_prices):.2f} kr/kWh | "
+        f"Snitt: {mean(all_prices):.2f} kr/kWh\n"
+        f"Billigast: {cheapest_time:%H:%M} ({cheapest_price:.2f}) | "
+        f"Dyrast: {most_expensive_time:%H:%M} ({most_expensive_price:.2f})"
+    )
 
     return (
-        "\n".join(rows),
+        summary,
         min(all_prices),
         max(all_prices),
         mean(all_prices),
-        hourly_prices,
+        price_points,
     )
 
 
-def create_chart(hourly_prices: list[tuple[str, float]]) -> bytes:
-    labels = [hour for hour, _ in hourly_prices]
-    values = [price for _, price in hourly_prices]
+def create_chart(
+    price_points: list[tuple[datetime, float]],
+    price_class: str,
+    date: datetime,
+) -> bytes:
+    times = [time for time, _ in price_points]
+    values = [price for _, price in price_points]
     minimum = min(values)
     maximum = max(values)
     spread = maximum - minimum
-    colormap = cm.get_cmap("RdYlGn_r")
-    colors = [
-        colormap((price - minimum) / spread if spread else 0.5)
-        for price in values
-    ]
+    colormap_registry = getattr(matplotlib, "colormaps", None)
+    colormap = (
+        colormap_registry["RdYlGn_r"]
+        if colormap_registry is not None
+        else cm.get_cmap("RdYlGn_r")
+    )
+    colors = [colormap((price - minimum) / spread if spread else 0.5) for price in values]
 
     figure, axis = plt.subplots(figsize=(12, 5), dpi=150)
-    axis.bar(labels, values, color=colors, edgecolor="#333333", linewidth=0.3)
-    axis.set_title("Elpris per timme")
+    plot_times = [mdates.date2num(time) for time in times]
+    axis.step(plot_times, values, where="post", color="#b7b7b7", linewidth=2.5, zorder=1)
+    axis.scatter(plot_times, values, color=colors, edgecolors="#333333", linewidths=0.25, s=16, zorder=2)
+    axis.set_title(f"Elpriser {date:%Y-%m-%d} ({price_class})")
     axis.set_ylabel("SEK/kWh")
     axis.grid(axis="y", alpha=0.25)
     axis.set_axisbelow(True)
+    axis.xaxis.set_major_locator(mdates.MinuteLocator(interval=30))
+    axis.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
     axis.tick_params(axis="x", rotation=45)
     figure.tight_layout()
 
@@ -167,17 +182,13 @@ def main() -> int:
 
         today = datetime.now(STOCKHOLM)
         prices = fetch_prices(price_class, today)
-        hourly, minimum, maximum, average, hourly_prices = format_hourly_prices(prices)
-        summary = (
-            f"Min: {minimum:.2f} kr/kWh | Max: {maximum:.2f} kr/kWh | "
-            f"Snitt: {average:.2f} kr/kWh\n\n{hourly}"
-        )
+        summary, _, _, _, price_points = format_prices(prices)
         send_to_discord(
             webhook_url,
             price_class,
             today,
             summary,
-            create_chart(hourly_prices),
+            create_chart(price_points, price_class, today),
         )
         print(f"Posted {len(prices)} price points for {today:%Y-%m-%d} ({price_class})")
         return 0
