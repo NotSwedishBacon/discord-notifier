@@ -133,6 +133,13 @@ def create_chart(
     figure, axis = plt.subplots(figsize=(12, 6.5), dpi=150, facecolor="#202225")
     axis.set_facecolor("#202225")
     intervals = list(range(1, len(interval_points) + 1))
+    for start in range(1, len(interval_points) + 1, 8):
+        axis.axvspan(
+            start - 0.5,
+            min(start + 3.5, len(interval_points) + 0.5),
+            facecolor="#2a2d31",
+            zorder=0,
+        )
     bars = axis.bar(
         intervals,
         values,
