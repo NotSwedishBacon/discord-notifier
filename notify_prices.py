@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 import matplotlib
-from matplotlib.cm import get_cmap
+import matplotlib.cm as cm
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -79,7 +79,7 @@ def create_chart(hourly_prices: list[tuple[str, float]]) -> bytes:
     minimum = min(values)
     maximum = max(values)
     spread = maximum - minimum
-    colormap = get_cmap("RdYlGn_r")
+    colormap = cm.get_cmap("RdYlGn_r")
     colors = [
         colormap((price - minimum) / spread if spread else 0.5)
         for price in values
@@ -132,7 +132,10 @@ def send_to_discord(
     request = Request(
         webhook_url,
         data=body,
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "User-Agent": "discord-notifier/1.0",
+        },
         method="POST",
     )
     try:
