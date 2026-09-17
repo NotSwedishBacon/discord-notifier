@@ -60,8 +60,18 @@ def format_prices(
     price_points.sort()
     all_prices = [price for _, price in price_points]
     average = mean(all_prices)
-    cheapest_window = find_price_window(price_points, average, cheapest=True)
-    most_expensive_window = find_price_window(price_points, average, cheapest=False)
+    recommendation_points = [point for point in price_points if point[0].hour >= 6]
+    recommendation_average = mean(price for _, price in recommendation_points)
+    cheapest_window = find_price_window(
+        recommendation_points,
+        recommendation_average,
+        cheapest=True,
+    )
+    most_expensive_window = find_price_window(
+        recommendation_points,
+        recommendation_average,
+        cheapest=False,
+    )
     summary = (
         f"**Prisöversikt**\n"
         f"Min: {min(all_prices):.2f} SEK/kWh\n"
