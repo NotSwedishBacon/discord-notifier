@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from io import BytesIO
-from datetime import datetime
+from datetime import datetime, timedelta
 from statistics import mean
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -59,13 +59,26 @@ def format_prices(
 
     price_points.sort()
     all_prices = [price for _, price in price_points]
-    cheapest_time, cheapest_price = min(price_points, key=lambda point: point[1])
-    most_expensive_time, most_expensive_price = max(price_points, key=lambda point: point[1])
+    hourly: dict[datetime, list[float]] = {}
+    for time, price in price_points:
+        hour = time.replace(minute=0, second=0, microsecond=0)
+        hourly.setdefault(hour, []).append(price)
+    hourly_points = sorted((hour, mean(hour_prices)) for hour, hour_prices in hourly.items())
+    average = mean(all_prices)
+    cheapest_window = find_price_window(hourly_points, average, cheapest=True)
+    most_expensive_window = find_price_window(hourly_points, average, cheapest=False)
     summary = (
-        f"Min: {min(all_prices):.2f} kr/kWh | Max: {max(all_prices):.2f} kr/kWh | "
-        f"Snitt: {mean(all_prices):.2f} kr/kWh\n"
-        f"Billigast: {cheapest_time:%H:%M} ({cheapest_price:.2f}) | "
-        f"Dyrast: {most_expensive_time:%H:%M} ({most_expensive_price:.2f})"
+        f"**DAGENS ELPRISER**\n"
+        f"**Prisöversikt**\n"
+        f"Min: {min(all_prices):.2f} SEK/kWh\n"
+        f"Max: {max(all_prices):.2f} SEK/kWh\n"
+        f"Snitt: {average:.2f} SEK/kWh\n\n"
+        f"**Billigast**\n"
+        f"{cheapest_window[0]:%H:%M}-{cheapest_window[1]:%H:%M} "
+        f"({cheapest_window[2]:.2f} SEK/kWh i snitt)\n\n"
+        f"**Dyrast**\n"
+        f"{most_expensive_window[0]:%H:%M}-{most_expensive_window[1]:%H:%M} "
+        f"({most_expensive_window[2]:.2f} SEK/kWh i snitt)"
     )
 
     return (
@@ -74,6 +87,40 @@ def format_prices(
         max(all_prices),
         mean(all_prices),
         price_points,
+    )
+
+
+def find_price_window(
+    hourly_points: list[tuple[datetime, float]],
+    average: float,
+    *,
+    cheapest: bool,
+) -> tuple[datetime, datetime, float]:
+    windows: list[list[tuple[datetime, float]]] = []
+    current: list[tuple[datetime, float]] = []
+    for point in hourly_points:
+        is_match = point[1] <= average if cheapest else point[1] >= average
+        if is_match:
+            current.append(point)
+        elif current:
+            windows.append(current)
+            current = []
+    if current:
+        windows.append(current)
+
+    selected = min(
+        windows,
+        key=lambda window: mean(price for _, price in window),
+        default=[hourly_points[0]],
+    ) if cheapest else max(
+        windows,
+        key=lambda window: mean(price for _, price in window),
+        default=[hourly_points[0]],
+    )
+    return (
+        selected[0][0],
+        selected[-1][0].replace(minute=0, second=0, microsecond=0) + timedelta(hours=1),
+        mean(price for _, price in selected),
     )
 
 
@@ -88,7 +135,7 @@ def create_chart(
         hourly.setdefault(hour, []).append(price)
 
     hourly_points = sorted((hour, mean(prices)) for hour, prices in hourly.items())
-    values = [price * 100 for _, price in hourly_points]
+    values = [price for _, price in hourly_points]
     minimum = min(values)
     maximum = max(values)
     spread = maximum - minimum
@@ -112,7 +159,7 @@ def create_chart(
         loc="left",
         pad=18,
     )
-    axis.set_ylabel("SPOTPRIS (ÖRE/KWH)", color="#d7d9dc", fontsize=10, fontweight="bold")
+    axis.set_ylabel("SPOTPRIS (SEK/KWH)", color="#d7d9dc", fontsize=10, fontweight="bold")
     axis.set_xlabel("TIMME", color="#d7d9dc", fontsize=10, fontweight="bold", labelpad=10)
     axis.set_xticks(hours)
     axis.set_xticklabels([str(hour) for hour in hours], color="#d7d9dc")
@@ -125,7 +172,7 @@ def create_chart(
     axis.text(
         0.01,
         0.98,
-        f"Min {minimum:.0f}  •  Max {maximum:.0f}  •  Snitt {mean(values):.0f} öre/kWh",
+        f"Min {minimum:.2f}  •  Max {maximum:.2f}  •  Snitt {mean(values):.2f} SEK/kWh",
         transform=axis.transAxes,
         color="#b9bbbe",
         fontsize=9,
@@ -135,7 +182,7 @@ def create_chart(
         axis.text(
             bar.get_x() + bar.get_width() / 2,
             value + maximum * 0.025,
-            f"{value:.0f}",
+            f"{value:.2f}",
             ha="center",
             va="bottom",
             color="#d7d9dc",
@@ -162,7 +209,7 @@ def send_to_discord(
         "embeds": [
             {
                 "title": f"Elpriser {date:%Y-%m-%d} ({price_class})",
-                "description": f"```text\n{content}\n```",
+                "description": content,
                 "color": 0x116530,
                 "footer": {"text": "Källa: elprisetjustnu.se"},
                 "image": {"url": "attachment://prices.png"},
