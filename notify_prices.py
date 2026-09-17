@@ -7,7 +7,7 @@ import re
 import sys
 from io import BytesIO
 from datetime import datetime, timedelta
-from statistics import mean, median
+from statistics import mean
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
@@ -88,13 +88,12 @@ def find_ranked_window(
     *,
     cheapest: bool,
 ) -> tuple[datetime, datetime, float]:
-    sorted_points = sorted(price_points, key=lambda point: (point[1], point[0]))
-    cheap_points = {id(point) for point in sorted_points[: len(sorted_points) // 2]}
+    average_price = mean(price for _, price in price_points)
     recommendation_points = [point for point in price_points if point[0].hour >= 6]
     windows: list[list[tuple[datetime, float]]] = []
     current: list[tuple[datetime, float]] = []
     for point in recommendation_points:
-        is_cheap = id(point) in cheap_points
+        is_cheap = point[1] < average_price
         is_match = is_cheap if cheapest else not is_cheap
         is_contiguous = current and point[0] - current[-1][0] == timedelta(minutes=15)
         if is_match and (not current or is_contiguous):
@@ -106,11 +105,9 @@ def find_ranked_window(
     if current:
         windows.append(current)
 
-    median_price = median(price for _, price in price_points)
-
     def window_score(window: list[tuple[datetime, float]]) -> float:
         distances = [
-            (median_price - price if cheapest else price - median_price)
+            (average_price - price if cheapest else price - average_price)
             for _, price in window
         ]
         return sum(distances) + max(distances)

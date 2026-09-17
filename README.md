@@ -10,6 +10,6 @@ Posts the day's Swedish electricity prices to a Discord channel using GitHub Act
 	- `PRISKLASS`: one of `SE1`, `SE2`, `SE3`, or `SE4`.
 3. Enable Actions for the repository.
 
-The workflow runs at 05:00 Stockholm time for today's prices and at 18:00 for tomorrow's prices. It can also be started manually from the Actions tab. The script accepts `today` or `tomorrow` as its date argument, aggregates the API's 15-minute prices into hourly averages, and attaches a chart where cheaper hours are green and more expensive hours are red.
+The workflow runs at 18:00 for tomorrow's prices. It can also be started manually from the Actions tab. The script aggregates the API's 15-minute prices into hourly averages, and attaches a chart where cheaper hours are green and more expensive hours are red.
 
 The webhook URL and price area are read only from GitHub Secrets; neither value is stored in this repository.
