@@ -238,13 +238,26 @@ def send_to_discord(
 
 
 def should_run_now() -> bool:
-    return os.environ.get("GITHUB_EVENT_NAME") != "schedule" or datetime.now(STOCKHOLM).hour == 5
+    return os.environ.get("GITHUB_EVENT_NAME") != "schedule" or datetime.now(STOCKHOLM).hour in (5, 18)
+
+
+def get_target_date(day: str) -> datetime:
+    current_date = datetime.now(STOCKHOLM)
+    if day == "today":
+        return current_date
+    if day == "tomorrow":
+        return current_date + timedelta(days=1)
+    raise RuntimeError("Date argument must be today or tomorrow")
 
 
 def main() -> int:
     try:
+        if len(sys.argv) != 2:
+            raise RuntimeError("Usage: python notify_prices.py today|tomorrow")
+        target_day = sys.argv[1].lower()
+
         if not should_run_now():
-            print("Skipping UTC trigger outside 05:00 Europe/Stockholm")
+            print("Skipping scheduled trigger outside 05:00 or 18:00 Europe/Stockholm")
             return 0
 
         webhook_url = get_required_environment("DISCORD_WEBHOOK_URL")
@@ -252,17 +265,17 @@ def main() -> int:
         if not PRICE_CLASS_PATTERN.fullmatch(price_class):
             raise RuntimeError("PRISKLASS must be one of SE1, SE2, SE3, or SE4")
 
-        today = datetime.now(STOCKHOLM)
-        prices = fetch_prices(price_class, today)
+        target_date = get_target_date(target_day)
+        prices = fetch_prices(price_class, target_date)
         summary, _, _, _, price_points = format_prices(prices)
         send_to_discord(
             webhook_url,
             price_class,
-            today,
+            target_date,
             summary,
-            create_chart(price_points, price_class, today),
+            create_chart(price_points, price_class, target_date),
         )
-        print(f"Posted {len(prices)} price points for {today:%Y-%m-%d} ({price_class})")
+        print(f"Posted {len(prices)} price points for {target_date:%Y-%m-%d} ({price_class})")
         return 0
     except (HTTPError, URLError, RuntimeError) as error:
         print(f"Notification failed: {error}", file=sys.stderr)

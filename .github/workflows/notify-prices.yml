@@ -2,9 +2,9 @@ name: Notify electricity prices
 
 on:
   schedule:
-    # GitHub cron uses UTC. These two triggers cover CET and CEST; the script
-    # skips the trigger that is not 05:00 in Stockholm.
+    # GitHub cron uses UTC. These pairs cover 05:00 and 18:00 CET/CEST.
     - cron: "0 4 * * *"
+    - cron: "0 18 * * *"
   push:
     branches:
       - main
@@ -32,4 +32,9 @@ jobs:
         run: python -m pip install -r requirements.txt
 
       - name: Send electricity prices
-        run: python notify_prices.py
+        run: |
+          if [[ "$(TZ=Europe/Stockholm date +%H)" == "18" ]]; then
+            python notify_prices.py tomorrow
+          else
+            python notify_prices.py today
+          fi
