@@ -157,7 +157,7 @@ def create_chart(
     ]
     axis.set_xticks(hourly_intervals)
     axis.set_xticklabels(
-        [interval_points[index - 1][0].strftime("%H:%M") for index in hourly_intervals],
+        [interval_points[index - 1][0].strftime("%H") for index in hourly_intervals],
         color="#d7d9dc",
     )
     axis.tick_params(axis="y", colors="#d7d9dc")
@@ -166,16 +166,6 @@ def create_chart(
     for spine in axis.spines.values():
         spine.set_visible(False)
     axis.set_ylim(0, max(maximum * 1.18, 1))
-    for bar, value in zip(bars, values):
-        axis.text(
-            bar.get_x() + bar.get_width() / 2,
-            value + maximum * 0.025,
-            f"{value:.2f}",
-            ha="center",
-            va="bottom",
-            color="#d7d9dc",
-            fontsize=7,
-        )
     figure.tight_layout(pad=1.5)
 
     image = BytesIO()
