@@ -161,10 +161,11 @@ def create_chart(
         index for index, (time, _) in enumerate(interval_points, start=1)
         if time.minute == 0
     ]
-    axis.set_xticks([index + 1.5 for index in hourly_intervals])
+    axis.set_xticks(hourly_intervals)
     axis.set_xticklabels(
-        [interval_points[index - 1][0].strftime("%H") for index in hourly_intervals],
+        [f"| {interval_points[index - 1][0]:%H}" for index in hourly_intervals],
         color="#d7d9dc",
+        ha="left",
     )
     axis.tick_params(axis="both", length=0)
     axis.tick_params(axis="y", colors="#d7d9dc")
