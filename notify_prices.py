@@ -133,10 +133,6 @@ def create_chart(
     figure, axis = plt.subplots(figsize=(12, 6.5), dpi=150, facecolor="#202225")
     axis.set_facecolor("#202225")
     intervals = list(range(1, len(interval_points) + 1))
-    hourly_intervals = [
-        index for index, (time, _) in enumerate(interval_points, start=1)
-        if time.minute == 0
-    ]
     bars = axis.bar(
         intervals,
         values,
@@ -144,14 +140,6 @@ def create_chart(
         width=0.9,
         edgecolor="#151619",
         linewidth=0.5,
-    )
-    axis.vlines(
-        hourly_intervals,
-        0,
-        max(maximum * 0.04, 0.02),
-        colors=["#d7d9dc"] * len(hourly_intervals),
-        linewidth=1,
-        zorder=4,
     )
     axis.set_title(
         f"DAGLIGA ELPRISER {date:%Y-%m-%d}",
@@ -163,11 +151,16 @@ def create_chart(
     )
     axis.set_ylabel("SPOTPRIS (SEK/KWH)", color="#d7d9dc", fontsize=10, fontweight="bold")
     axis.set_xlabel("TID", color="#d7d9dc", fontsize=10, fontweight="bold", labelpad=10)
+    hourly_intervals = [
+        index for index, (time, _) in enumerate(interval_points, start=1)
+        if time.minute == 0
+    ]
     axis.set_xticks(hourly_intervals)
     axis.set_xticklabels(
         [interval_points[index - 1][0].strftime("%H") for index in hourly_intervals],
         color="#d7d9dc",
     )
+    axis.tick_params(axis="x", colors="#d7d9dc", direction="in", length=6, width=1)
     axis.tick_params(axis="y", colors="#d7d9dc")
     axis.grid(axis="y", color="#4b4d52", alpha=0.45, linewidth=0.7)
     axis.set_axisbelow(True)
