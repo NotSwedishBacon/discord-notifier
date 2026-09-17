@@ -64,20 +64,17 @@ def format_prices(
     recommendation_average = mean(price for _, price in recommendation_points)
     recommendation_minimum = min(price for _, price in recommendation_points)
     recommendation_maximum = max(price for _, price in recommendation_points)
-    cheap_threshold = recommendation_minimum + (
-        recommendation_average - recommendation_minimum
-    ) * 0.50
-    expensive_threshold = recommendation_maximum - (
-        recommendation_maximum - recommendation_average
-    ) * 0.65
+    recommendation_threshold = recommendation_minimum + (
+        recommendation_maximum - recommendation_minimum
+    ) * 0.35
     cheapest_window = find_price_window(
         recommendation_points,
-        cheap_threshold,
+        recommendation_threshold,
         cheapest=True,
     )
     most_expensive_window = find_price_window(
         recommendation_points,
-        expensive_threshold,
+        recommendation_threshold,
         cheapest=False,
     )
     summary = (
