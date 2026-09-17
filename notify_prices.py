@@ -7,7 +7,7 @@ import re
 import sys
 from io import BytesIO
 from datetime import datetime, timedelta
-from statistics import mean
+from statistics import mean, median
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
@@ -60,23 +60,8 @@ def format_prices(
     price_points.sort()
     all_prices = [price for _, price in price_points]
     average = mean(all_prices)
-    recommendation_points = [point for point in price_points if point[0].hour >= 6]
-    recommendation_average = mean(price for _, price in recommendation_points)
-    recommendation_minimum = min(price for _, price in recommendation_points)
-    recommendation_maximum = max(price for _, price in recommendation_points)
-    recommendation_threshold = recommendation_minimum + (
-        recommendation_maximum - recommendation_minimum
-    ) * 0.35
-    cheapest_window = find_price_window(
-        recommendation_points,
-        recommendation_threshold,
-        cheapest=True,
-    )
-    most_expensive_window = find_price_window(
-        recommendation_points,
-        recommendation_threshold,
-        cheapest=False,
-    )
+    cheapest_window = find_ranked_window(price_points, cheapest=True)
+    most_expensive_window = find_ranked_window(price_points, cheapest=False)
     summary = (
         f"**Prisöversikt**\n"
         f"Min: {min(all_prices):.2f} SEK/kWh\n"
@@ -99,16 +84,19 @@ def format_prices(
     )
 
 
-def find_price_window(
+def find_ranked_window(
     price_points: list[tuple[datetime, float]],
-    average: float,
     *,
     cheapest: bool,
 ) -> tuple[datetime, datetime, float]:
+    sorted_points = sorted(price_points, key=lambda point: (point[1], point[0]))
+    cheap_points = {id(point) for point in sorted_points[: len(sorted_points) // 2]}
+    recommendation_points = [point for point in price_points if point[0].hour >= 6]
     windows: list[list[tuple[datetime, float]]] = []
     current: list[tuple[datetime, float]] = []
-    for point in price_points:
-        is_match = point[1] <= average if cheapest else point[1] >= average
+    for point in recommendation_points:
+        is_cheap = id(point) in cheap_points
+        is_match = is_cheap if cheapest else not is_cheap
         is_contiguous = current and point[0] - current[-1][0] == timedelta(minutes=15)
         if is_match and (not current or is_contiguous):
             current.append(point)
@@ -119,11 +107,16 @@ def find_price_window(
     if current:
         windows.append(current)
 
-    selected = (
-        min(windows, key=lambda window: mean(price for _, price in window))
-        if cheapest
-        else max(windows, key=lambda window: mean(price for _, price in window))
-    )
+    median_price = median(price for _, price in price_points)
+
+    def window_score(window: list[tuple[datetime, float]]) -> float:
+        distances = [
+            (median_price - price if cheapest else price - median_price)
+            for _, price in window
+        ]
+        return sum(distances) + max(distances)
+
+    selected = max(windows, key=window_score)
     return (
         selected[0][0],
         selected[-1][0] + timedelta(minutes=15),
