@@ -60,8 +60,8 @@ def format_prices(
     price_points.sort()
     all_prices = [price for _, price in price_points]
     average = mean(all_prices)
-    cheapest_window = find_price_window(price_points, cheapest=True)
-    most_expensive_window = find_price_window(price_points, cheapest=False)
+    cheapest_window = find_price_window(price_points, average, cheapest=True)
+    most_expensive_window = find_price_window(price_points, average, cheapest=False)
     summary = (
         f"**Prisöversikt**\n"
         f"Min: {min(all_prices):.2f} SEK/kWh\n"
@@ -86,18 +86,33 @@ def format_prices(
 
 def find_price_window(
     price_points: list[tuple[datetime, float]],
+    average: float,
     *,
     cheapest: bool,
 ) -> tuple[datetime, datetime, float]:
-    selected_time, selected_price = (
-        min(price_points, key=lambda point: point[1])
+    windows: list[list[tuple[datetime, float]]] = []
+    current: list[tuple[datetime, float]] = []
+    for point in price_points:
+        is_match = point[1] <= average if cheapest else point[1] >= average
+        is_contiguous = current and point[0] - current[-1][0] == timedelta(minutes=15)
+        if is_match and (not current or is_contiguous):
+            current.append(point)
+        else:
+            if current:
+                windows.append(current)
+            current = [point] if is_match else []
+    if current:
+        windows.append(current)
+
+    selected = (
+        min(windows, key=lambda window: mean(price for _, price in window))
         if cheapest
-        else max(price_points, key=lambda point: point[1])
+        else max(windows, key=lambda window: mean(price for _, price in window))
     )
     return (
-        selected_time,
-        selected_time + timedelta(minutes=15),
-        selected_price,
+        selected[0][0],
+        selected[-1][0] + timedelta(minutes=15),
+        mean(price for _, price in selected),
     )
 
 
