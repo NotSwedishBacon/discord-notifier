@@ -3,7 +3,7 @@ name: Notify electricity prices
 on:
   schedule:
     # GitHub cron uses UTC. These pairs cover 05:00 and 18:00 CET/CEST.
-    - cron: "0 18 * * *"
+    - cron: "0 16 * * *"
   push:
     branches:
       - main
